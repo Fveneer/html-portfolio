@@ -50,6 +50,13 @@ function profileText() {
   return [S.profile.resume ? resumeToText(S.profile.resume) : S.profile.raw, S.profile.notes].filter(Boolean).join('\n');
 }
 
+// La IA cambió de modelo porque el configurado fue retirado por el proveedor.
+function modelChanged(model) {
+  save();
+  if ($('#set-provider').value === S.settings.provider) $('#set-model').value = model;
+  toast(`El modelo anterior ya no está disponible. Ahora se usa ${model}.`);
+}
+
 function hasProfile() {
   return !!(S.profile.resume || S.profile.raw.trim());
 }
@@ -180,7 +187,7 @@ function initProfile() {
     $('#cv-status').textContent = 'Analizando tu CV con IA…';
     try {
       const { system, user } = parseResumePrompt(S.profile.raw, S.profile.notes);
-      const resume = await callAI(S.settings, system, user, { onRetry: m => ($('#cv-status').textContent = m) });
+      const resume = await callAI(S.settings, system, user, { onModelChange: modelChanged, onRetry: m => ($('#cv-status').textContent = m) });
       S.profile.resume = resume;
       S.profile.updatedAt = new Date().toISOString();
       save();
@@ -411,7 +418,7 @@ function ensureReady(job) {
 async function tailor(job, onStatus) {
   ensureReady(job);
   const { system, user } = tailorPrompt({ profile: S.profile, job, settings: S.settings });
-  const out = await callAI(S.settings, system, user, { maxTokens: 12000, onRetry: onStatus });
+  const out = await callAI(S.settings, system, user, { maxTokens: 12000, onRetry: onStatus, onModelChange: modelChanged });
   if (!out?.resume) throw new Error('La respuesta de la IA no incluyó el CV.');
   job.result = {
     resume: out.resume,
@@ -434,7 +441,7 @@ async function tailor(job, onStatus) {
 async function cover(job, onStatus) {
   ensureReady(job);
   const { system, user } = coverLetterPrompt({ profile: S.profile, job, resume: job.result?.resume, settings: S.settings });
-  const out = await callAI(S.settings, system, user, { maxTokens: 3000, onRetry: onStatus });
+  const out = await callAI(S.settings, system, user, { maxTokens: 3000, onRetry: onStatus, onModelChange: modelChanged });
   job.cover = { subject: out.subject || '', body: out.body || out.coverLetter || '', generatedAt: new Date().toISOString() };
   save();
 }
@@ -442,7 +449,7 @@ async function cover(job, onStatus) {
 async function interview(job, onStatus) {
   ensureReady(job);
   const { system, user } = interviewPrompt({ profile: S.profile, job, resume: job.result?.resume, settings: S.settings });
-  const out = await callAI(S.settings, system, user, { maxTokens: 6000, onRetry: onStatus });
+  const out = await callAI(S.settings, system, user, { maxTokens: 6000, onRetry: onStatus, onModelChange: modelChanged });
   job.interview = { questions: out.questions || [], questionsToAsk: out.questionsToAsk || [], generatedAt: new Date().toISOString() };
   save();
 }
@@ -670,7 +677,7 @@ function onDetailClick(e) {
         return withBusy(job.id + ':form', async () => {
           ensureReady(job);
           const { system, user } = formAnswerPrompt({ profile: S.profile, job, resume: job.result?.resume, question: q, settings: S.settings });
-          const out = await callAI(S.settings, system, user, { maxTokens: 2000, onRetry: toast });
+          const out = await callAI(S.settings, system, user, { maxTokens: 2000, onRetry: toast, onModelChange: modelChanged });
           job.formAnswers = [{ q, a: out.answer || '' }, ...(job.formAnswers || [])];
           save();
         });
@@ -773,13 +780,33 @@ function initSettings() {
     save();
     updateBanner();
   };
+  $('#btn-list-models').addEventListener('click', async e => {
+    storeProvider();
+    e.target.disabled = true;
+    $('#settings-status').textContent = 'Buscando modelos…';
+    try {
+      const models = await listModels(S.settings);
+      if (!models.length) throw new Error('El proveedor no devolvió modelos.');
+      $('#model-suggestions').innerHTML = models.map(m => `<option value="${esc(m)}">`).join('');
+      // El proveedor puede seguir listando modelos retirados, así que siempre se propone el más reciente recomendado.
+      const best = pickModel(sel.value, models);
+      if (best) $('#set-model').value = best;
+      storeProvider();
+      $('#settings-status').textContent = `✓ ${models.length} modelos disponibles. Recomendado: ${$('#set-model').value}. Para elegir otro, borra el campo y verás la lista.`;
+    } catch (err) {
+      $('#settings-status').textContent = '';
+      toast(err.message, true);
+    } finally {
+      e.target.disabled = false;
+    }
+  });
   $('#btn-save-settings').addEventListener('click', () => { storeProvider(); toast('Ajustes guardados'); });
   $('#btn-test-ai').addEventListener('click', async e => {
     storeProvider();
     e.target.disabled = true;
     $('#settings-status').textContent = 'Probando…';
     try {
-      const out = await callAI(S.settings, 'Reply with JSON only.', 'Return {"ok": true, "msg": "hola"}', { maxTokens: 200 });
+      const out = await callAI(S.settings, 'Reply with JSON only.', 'Return {"ok": true, "msg": "hola"}', { maxTokens: 2000, onModelChange: modelChanged });
       $('#settings-status').textContent = out?.ok ? '✓ Conexión correcta' : '⚠ Respondió, pero en formato inesperado';
     } catch (err) {
       $('#settings-status').textContent = '';

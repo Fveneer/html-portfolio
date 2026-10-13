@@ -9,7 +9,7 @@ Una alternativa gratuita a AIApply: adapta tu hoja de vida a cada oferta de empl
 ## Cómo usarlo
 
 1. Abre `job-tailor/index.html` con doble clic (funciona sin servidor) o publícalo con GitHub Pages. Para leer PDF y DOCX necesitas conexión a internet la primera vez (la librería se descarga de un CDN).
-2. **Ajustes**: elige un proveedor y pega tu API key. Lo más fácil es Google Gemini (clave gratis en https://aistudio.google.com/apikey). Pulsa "Probar conexión".
+2. **Ajustes**: elige un proveedor y pega tu API key. Lo más fácil es Google Gemini (clave gratis en https://aistudio.google.com/apikey). Pulsa **Cargar modelos** (elige el modelo más reciente disponible con tu clave) y luego "Probar conexión". Si un proveedor retira un modelo, la app cambia sola a uno disponible.
 3. **Mi CV**: sube tu CV (PDF, DOCX o TXT), arrástralo sobre el recuadro o pégalo, añade notas (logros extra, roles objetivo) y pulsa **Estructurar con IA**. Revisa el resultado.
 4. **Ofertas**: pega una oferta (o varias separadas por `---`, o una lista de URLs) y pulsa **Adaptar CV**, o usa **Adaptar CV a todas las pendientes** para procesarlas en lote.
 5. En cada oferta: descarga el CV en PDF, Word o TXT, edítalo a mano, genera la carta, prepara la entrevista y responde preguntas del formulario.

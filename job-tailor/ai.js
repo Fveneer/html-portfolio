@@ -4,8 +4,8 @@ const PROVIDERS = {
   gemini: {
     label: 'Google Gemini (gratis con clave de AI Studio)',
     needsKey: true,
-    models: ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'],
-    help: 'Gratis: entra a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>, crea una clave y pégala aquí. El plan gratuito tiene límite de solicitudes por minuto; deja una pausa de 4–6 s en lote.',
+    models: ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'],
+    help: 'Gratis: entra a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>, crea una clave y pégala aquí. Luego pulsa <b>Cargar modelos</b> para ver los disponibles con tu clave. El plan gratuito tiene límite de solicitudes por minuto; deja una pausa de 4–6 s en lote.',
   },
   groq: {
     label: 'Groq (gratis, muy rápido)',
@@ -154,15 +154,78 @@ async function callOnce(cfg, system, user, { json, maxTokens }) {
   return text;
 }
 
-async function callAI(settings, system, user, { json = true, maxTokens = 8000, onRetry } = {}) {
+// Lista los modelos que el proveedor ofrece con la clave del usuario.
+async function listModels(settings) {
   const cfg = providerConfig(settings);
+  if (PROVIDERS[cfg.id].needsKey && !cfg.key) throw new Error('Falta la API key. Configúrala en Ajustes.');
+  if (cfg.id === 'gemini') {
+    const data = await http('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000', { headers: { 'x-goog-api-key': cfg.key } });
+    return (data.models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => m.name.replace(/^models\//, ''));
+  }
+  if (cfg.id === 'anthropic') {
+    const data = await http('https://api.anthropic.com/v1/models?limit=100', {
+      headers: { 'x-api-key': cfg.key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    });
+    return (data.data || []).map(m => m.id);
+  }
+  if (cfg.id === 'ollama') {
+    const data = await http(`${cfg.baseUrl}/api/tags`, {});
+    return (data.models || []).map(m => m.name);
+  }
+  const base = cfg.id === 'groq' ? 'https://api.groq.com/openai/v1' : cfg.id === 'openrouter' ? 'https://openrouter.ai/api/v1' : cfg.baseUrl;
+  const data = await http(`${base}/models`, { headers: cfg.key ? { Authorization: `Bearer ${cfg.key}` } : {} });
+  const ids = (data.data || []).map(m => m.id);
+  return cfg.id === 'openrouter' ? ids.filter(id => id.endsWith(':free')) : ids;
+}
+
+// Elige el mejor modelo de texto de una lista (para reemplazar uno retirado o configurar por primera vez).
+function pickModel(providerId, models) {
+  const usable = models.filter(m => !/(embed|image|imagen|tts|audio|live|whisper|guard|vision|veo|aqa|robotics|computer-use|native|transcri|moderation)/i.test(m));
+  if (!usable.length) return null;
+  const preferred = PROVIDERS[providerId].models.find(m => usable.includes(m));
+  if (providerId === 'gemini') {
+    const version = m => parseFloat((m.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
+    const score = m => version(m) * 10
+      + (/flash/.test(m) ? 5 : 0) - (/lite/.test(m) ? 3 : 0)
+      - (/(preview|exp)/.test(m) ? 2 : 0) - (/\d{3,}$/.test(m) ? 1 : 0)
+      + (/-latest$/.test(m) ? 1 : 0) - (/pro/.test(m) ? 1 : 0);
+    return [...usable].filter(m => /^gemini-/.test(m)).sort((a, b) => score(b) - score(a))[0] || preferred || usable[0];
+  }
+  if (preferred) return preferred;
+  if (providerId === 'groq') return usable.find(m => /70b|120b/.test(m)) || usable[0];
+  return usable[0];
+}
+
+const isModelGone = e => e.status === 404 || /model.*(not found|no longer available|deprecated|does not exist|not supported)/i.test(e.message || '');
+
+async function callAI(settings, system, user, { json = true, maxTokens = 8000, onRetry, onModelChange } = {}) {
+  let cfg = providerConfig(settings);
   let lastErr;
+  let switchedModel = false;
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const text = await callOnce(cfg, system, user, { json, maxTokens });
       return json ? parseJson(text) : text.trim();
     } catch (e) {
       lastErr = e;
+      // Si el modelo fue retirado, busca uno disponible con la clave del usuario y reintenta.
+      if (isModelGone(e) && !switchedModel) {
+        switchedModel = true;
+        let replacement = null;
+        try { replacement = pickModel(cfg.id, await listModels(settings)); } catch (listErr) { console.warn(listErr); }
+        if (replacement && replacement !== cfg.model) {
+          onRetry?.(`El modelo ${cfg.model} ya no está disponible; cambiando a ${replacement}…`);
+          settings.models = { ...(settings.models || {}), [cfg.id]: replacement };
+          cfg = providerConfig(settings);
+          onModelChange?.(replacement);
+          attempt--;
+          continue;
+        }
+        lastErr = new Error(`${e.message}\n\nEl modelo "${cfg.model}" no está disponible. Ve a Ajustes, pulsa "Cargar modelos" y elige otro.`);
+        break;
+      }
       const retryable = e.status === 429 || e.status === 408 || e.status >= 500 || e.name === 'JsonParseError';
       if (!retryable || attempt === 3) break;
       const wait = e.retryAfter ? e.retryAfter * 1000 : 3000 * 2 ** attempt;

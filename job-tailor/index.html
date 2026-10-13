@@ -156,7 +156,10 @@
             <input id="set-baseurl" placeholder="http://localhost:11434">
           </div>
           <label>Modelo</label>
-          <input id="set-model" list="model-suggestions">
+          <div class="row" style="margin-top:0">
+            <input id="set-model" list="model-suggestions" style="flex:1">
+            <button class="btn secondary small" id="btn-list-models" title="Consulta al proveedor qué modelos puedes usar con tu clave">Cargar modelos</button>
+          </div>
           <datalist id="model-suggestions"></datalist>
           <div class="row">
             <button class="btn" id="btn-save-settings">Guardar</button>
