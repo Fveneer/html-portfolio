@@ -3,7 +3,7 @@ const DB_NAME = 'job-tailor';
 const STORE = 'kv';
 const KEY = 'state';
 
-export const STATUSES = [
+const STATUSES = [
   { id: 'saved', label: 'Guardada' },
   { id: 'ready', label: 'CV listo' },
   { id: 'applied', label: 'Aplicada' },
@@ -12,7 +12,7 @@ export const STATUSES = [
   { id: 'rejected', label: 'Rechazada' },
 ];
 
-export function defaultState() {
+function defaultState() {
   return {
     version: 1,
     settings: {
@@ -43,7 +43,7 @@ function openDb() {
   });
 }
 
-export async function loadState() {
+async function loadState() {
   let data = null;
   try {
     const db = await openDb();
@@ -58,7 +58,7 @@ export async function loadState() {
   return mergeDefaults(data);
 }
 
-export function mergeDefaults(data) {
+function mergeDefaults(data) {
   const base = defaultState();
   if (!data || typeof data !== 'object') return base;
   return {
@@ -71,7 +71,7 @@ export function mergeDefaults(data) {
 }
 
 let saveTimer = null;
-export function saveState(state) {
+function saveState(state) {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => writeState(state), 250);
 }
@@ -90,6 +90,6 @@ async function writeState(state) {
   }
 }
 
-export function uid() {
+function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }

@@ -21,7 +21,7 @@ function tokens(text) {
 }
 
 // Devuelve [{term, weight}] ordenado por relevancia.
-export function extractKeywords(jobText, max = 30) {
+function extractKeywords(jobText, max = 30) {
   const toks = tokens(jobText);
   const uni = new Map();
   const bi = new Map();
@@ -56,7 +56,7 @@ export function extractKeywords(jobText, max = 30) {
   return chosen;
 }
 
-export function scoreMatch(jobText, resumeText, max = 30) {
+function scoreMatch(jobText, resumeText, max = 30) {
   const kws = extractKeywords(jobText, max);
   const hay = ' ' + normalize(resumeText) + ' ';
   const hits = [];

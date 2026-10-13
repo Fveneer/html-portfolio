@@ -1,10 +1,9 @@
-import { loadState, saveState, mergeDefaults, defaultState, uid, STATUSES } from './store.js';
-import { PROVIDERS, providerConfig, callAI, parseResumePrompt, tailorPrompt, coverLetterPrompt, interviewPrompt, formAnswerPrompt } from './ai.js';
-import { TEMPLATES, TEMPLATE_CSS, renderResume, resumeToText, printHtml, download, downloadWord, letterHtml, safeFile, esc } from './resume.js';
-import { scoreMatch } from './ats.js';
 
-const PDFJS = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/';
-const MAMMOTH = 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
+// Librerías para leer PDF y DOCX; se cargan solo cuando hacen falta, con un CDN de respaldo.
+const CDNS = ['https://cdn.jsdelivr.net/npm/', 'https://unpkg.com/'];
+const PDFJS = 'pdfjs-dist@4.4.168/build/';
+const MAMMOTH = 'mammoth@1.8.0/mammoth.browser.min.js';
+const LIB_ERROR = 'No se pudo descargar el lector de archivos (revisa tu conexión a internet). Mientras tanto, abre tu CV, copia todo el texto y pégalo en el recuadro.';
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
@@ -97,8 +96,13 @@ function loadScript(src) {
 async function extractText(file) {
   const name = file.name.toLowerCase();
   if (name.endsWith('.pdf')) {
-    const pdfjs = await import(PDFJS + 'pdf.min.mjs');
-    pdfjs.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.mjs';
+    let pdfjs = null;
+    let base = '';
+    for (const cdn of CDNS) {
+      try { pdfjs = await import(cdn + PDFJS + 'pdf.min.mjs'); base = cdn + PDFJS; break; } catch (e) { console.warn(e); }
+    }
+    if (!pdfjs) throw new Error(LIB_ERROR);
+    pdfjs.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.mjs';
     const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
     const pages = [];
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -109,7 +113,7 @@ async function extractText(file) {
       for (const it of content.items) {
         const y = it.transform?.[5];
         if (lastY !== null && Math.abs(y - lastY) > 2) { lines.push(line); line = ''; }
-        line += it.str + (it.hasEOL ? '\n' : '');
+        line += it.str;
         lastY = y;
       }
       lines.push(line);
@@ -118,10 +122,15 @@ async function extractText(file) {
     return pages.join('\n\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   }
   if (name.endsWith('.docx')) {
-    if (!window.mammoth) await loadScript(MAMMOTH);
+    for (const cdn of CDNS) {
+      if (window.mammoth) break;
+      try { await loadScript(cdn + MAMMOTH); } catch (e) { console.warn(e); }
+    }
+    if (!window.mammoth) throw new Error(LIB_ERROR);
     const res = await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
     return res.value.replace(/\n{3,}/g, '\n\n').trim();
   }
+  if (name.endsWith('.doc')) throw new Error('Los archivos .doc antiguos no se pueden leer. Guárdalo como .docx o PDF desde Word, o pega el texto.');
   return (await file.text()).trim();
 }
 
@@ -146,23 +155,20 @@ function initProfile() {
   $('#cv-raw').addEventListener('input', e => { S.profile.raw = e.target.value; save(); updateBanner(); });
   $('#cv-notes').addEventListener('input', e => { S.profile.notes = e.target.value; save(); });
 
-  $('#cv-file').addEventListener('change', async e => {
+  $('#cv-file').addEventListener('change', e => {
     const file = e.target.files[0];
     e.target.value = '';
+    if (file) loadCvFile(file);
+  });
+  const raw = $('#cv-raw');
+  raw.addEventListener('dragover', e => { e.preventDefault(); raw.classList.add('dropping'); });
+  raw.addEventListener('dragleave', () => raw.classList.remove('dropping'));
+  raw.addEventListener('drop', e => {
+    raw.classList.remove('dropping');
+    const file = e.dataTransfer.files[0];
     if (!file) return;
-    const st = $('#cv-file-status');
-    st.textContent = 'Leyendo ' + file.name + '…';
-    try {
-      const text = await extractText(file);
-      if (!text) throw new Error('No se encontró texto (¿es un PDF escaneado como imagen?).');
-      $('#cv-raw').value = S.profile.raw = text;
-      save();
-      updateBanner();
-      st.textContent = `✓ ${file.name} cargado. Ahora pulsa "Estructurar con IA".`;
-    } catch (err) {
-      st.textContent = '';
-      toast(err.message, true);
-    }
+    e.preventDefault();
+    loadCvFile(file);
   });
 
   $('#btn-save-cv').addEventListener('click', () => { save(); toast('CV guardado'); });
@@ -206,6 +212,23 @@ function initProfile() {
 
   fillTemplateSelect($('#profile-template'), S.settings.template);
   $('#profile-template').addEventListener('change', e => { S.settings.template = e.target.value; save(); renderProfilePreview(); });
+}
+
+async function loadCvFile(file) {
+  const st = $('#cv-file-status');
+  st.textContent = 'Leyendo ' + file.name + '…';
+  try {
+    const text = await extractText(file);
+    if (!text) throw new Error('No se encontró texto en el archivo (¿es un PDF escaneado como imagen?). Copia y pega el texto manualmente.');
+    $('#cv-raw').value = S.profile.raw = text;
+    save();
+    updateBanner();
+    st.textContent = `✓ ${file.name} cargado. Ahora pulsa "Estructurar con IA".`;
+  } catch (err) {
+    console.error(err);
+    st.textContent = '✕ ' + err.message;
+    toast(err.message, true);
+  }
 }
 
 function renderProfilePreview() {

@@ -84,6 +84,7 @@ input, select, textarea {
 }
 input[type=checkbox] { width: auto; }
 textarea { resize: vertical; }
+textarea.dropping { border-color: var(--accent); background: var(--accent-soft); }
 .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; }
 .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
 .row.space { justify-content: space-between; margin-top: 0; }

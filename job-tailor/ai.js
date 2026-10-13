@@ -1,6 +1,6 @@
 // Proveedores de IA y prompts. Todas las llamadas salen directamente del navegador al proveedor elegido.
 
-export const PROVIDERS = {
+const PROVIDERS = {
   gemini: {
     label: 'Google Gemini (gratis con clave de AI Studio)',
     needsKey: true,
@@ -41,7 +41,7 @@ export const PROVIDERS = {
   },
 };
 
-export function providerConfig(settings) {
+function providerConfig(settings) {
   const id = settings.provider in PROVIDERS ? settings.provider : 'gemini';
   const p = PROVIDERS[id];
   return {
@@ -154,7 +154,7 @@ async function callOnce(cfg, system, user, { json, maxTokens }) {
   return text;
 }
 
-export async function callAI(settings, system, user, { json = true, maxTokens = 8000, onRetry } = {}) {
+async function callAI(settings, system, user, { json = true, maxTokens = 8000, onRetry } = {}) {
   const cfg = providerConfig(settings);
   let lastErr;
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -173,7 +173,7 @@ export async function callAI(settings, system, user, { json = true, maxTokens = 
   throw lastErr;
 }
 
-export function parseJson(text) {
+function parseJson(text) {
   let t = String(text || '').trim();
   t = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
   t = t.replace(/<think>[\s\S]*?<\/think>/g, '');
@@ -217,7 +217,7 @@ const RESUME_SCHEMA = `{
   "other": [ { "title": string, "items": string[] } ]   // volunteering, awards, publications…
 }`;
 
-export function parseResumePrompt(raw, notes) {
+function parseResumePrompt(raw, notes) {
   return {
     system: 'You convert resumes into clean structured JSON. Preserve every fact exactly (names, dates, companies, numbers). Do not add, embellish or drop information. Keep the original language. Output only JSON.',
     user: `Convert this resume into JSON with this exact shape (omit nothing that exists; use "" or [] when missing):
@@ -239,7 +239,7 @@ const LEVELS = {
   aggressive: 'Optimize hard for ATS and recruiter fit: rewrite the headline, summary and every bullet around the posting\'s requirements, surface every relevant transferable skill, cut irrelevant content aggressively, and mirror the posting\'s keywords wherever the source supports them. Still never fabricate.',
 };
 
-export function tailorPrompt({ profile, job, settings }) {
+function tailorPrompt({ profile, job, settings }) {
   const pages = settings.length === '2' ? 'two pages' : 'one page';
   const master = profile.resume ? JSON.stringify(profile.resume, null, 1) : profile.raw;
   return {
@@ -292,7 +292,7 @@ const TONES = {
   concise: 'brief and direct (max ~170 words)',
 };
 
-export function coverLetterPrompt({ profile, job, resume, settings }) {
+function coverLetterPrompt({ profile, job, resume, settings }) {
   return {
     system: `You write cover letters that get interviews. Tone: ${TONES[settings.tone] || TONES.professional}. Use only facts present in the candidate's resume/notes. Connect 2–3 of the candidate's most relevant achievements to the company's needs from the posting. No clichés ("I am writing to express my interest"), no placeholders like [Company] — if the company or hiring manager name is unknown, write naturally without it. 3–4 short paragraphs plus greeting and sign-off with the candidate's name. ${langInstruction(settings.lang)} Output only JSON.`,
     user: `Return JSON: { "subject": string, "body": string }   // body uses \\n\\n between paragraphs
@@ -310,7 +310,7 @@ ${job.description}
   };
 }
 
-export function interviewPrompt({ profile, job, resume, settings }) {
+function interviewPrompt({ profile, job, resume, settings }) {
   return {
     system: `You are an interview coach. Predict the questions this candidate is most likely to be asked for this job (mix of behavioral, technical/role-specific, and about gaps in their profile) and draft strong answers using only facts from the candidate's resume (use the STAR method for behavioral ones). ${langInstruction(settings.lang)} Output only JSON.`,
     user: `Return JSON: { "questions": [ { "question": string, "why": string, "answer": string } ], "questionsToAsk": string[] }
@@ -328,7 +328,7 @@ ${job.description}
   };
 }
 
-export function formAnswerPrompt({ profile, job, resume, question, settings }) {
+function formAnswerPrompt({ profile, job, resume, question, settings }) {
   return {
     system: `You help a candidate answer questions in job application forms. Answer in first person, truthfully, using only facts from the resume and notes, tailored to this company and role. Be concise (60–150 words unless the question asks for something else). ${langInstruction(settings.lang)} Output only JSON.`,
     user: `Return JSON: { "answer": string }

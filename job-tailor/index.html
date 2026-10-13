@@ -40,7 +40,7 @@
             </label>
             <span id="cv-file-status" class="muted small"></span>
           </div>
-          <textarea id="cv-raw" rows="18" placeholder="Nombre Apellido&#10;Correo · Teléfono · Ciudad · LinkedIn&#10;&#10;EXPERIENCIA&#10;Cargo — Empresa (2021 – Actual)&#10;- Logro 1&#10;- Logro 2&#10;..."></textarea>
+          <textarea id="cv-raw" rows="18" placeholder="Pega tu CV aquí o arrastra el archivo (PDF, DOCX, TXT)&#10;&#10;Nombre Apellido&#10;Correo · Teléfono · Ciudad · LinkedIn&#10;&#10;EXPERIENCIA&#10;Cargo — Empresa (2021 – Actual)&#10;- Logro 1&#10;- Logro 2&#10;..."></textarea>
           <label>Notas adicionales para la IA <span class="muted small">(logros extra, roles objetivo, habilidades que no están en el CV, salario, disponibilidad…)</span></label>
           <textarea id="cv-notes" rows="4" placeholder="Ej: Busco roles de Frontend / Full-stack. Tengo inglés B2. Disponible para remoto. También manejo Figma a nivel básico."></textarea>
           <div class="row">
@@ -217,6 +217,11 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="app.js"></script>
+  <!-- Scripts clásicos (no "module") para que la app funcione también abriendo el archivo con doble clic (file://). -->
+  <script src="store.js"></script>
+  <script src="ats.js"></script>
+  <script src="resume.js"></script>
+  <script src="ai.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

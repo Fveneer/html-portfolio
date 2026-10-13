@@ -1,12 +1,12 @@
 // Render del CV (JSON -> HTML) con plantillas, y exportación (PDF, Word, texto).
 
-export const TEMPLATES = [
+const TEMPLATES = [
   { id: 'classic', label: 'Clásica (ATS)' },
   { id: 'modern', label: 'Moderna' },
   { id: 'compact', label: 'Compacta' },
 ];
 
-export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const LABELS = {
   es: { summary: 'Perfil profesional', experience: 'Experiencia', skills: 'Habilidades', education: 'Educación', projects: 'Proyectos', certifications: 'Certificaciones', languages: 'Idiomas', present: 'Actualidad' },
@@ -16,7 +16,7 @@ const LABELS = {
   de: { summary: 'Profil', experience: 'Berufserfahrung', skills: 'Kenntnisse', education: 'Ausbildung', projects: 'Projekte', certifications: 'Zertifikate', languages: 'Sprachen', present: 'Heute' },
 };
 
-export const TEMPLATE_CSS = `
+const TEMPLATE_CSS = `
 .cv { font-family: Calibri, "Segoe UI", Arial, sans-serif; font-size: 10.5pt; line-height: 1.35; color: #1a1a1a; }
 .cv h1 { margin: 0; font-size: 21pt; letter-spacing: .3px; }
 .cv .headline { font-size: 11.5pt; margin-top: 2px; }
@@ -52,12 +52,12 @@ function dates(start, end, L) {
   return [start, e].filter(Boolean).map(esc).join(' – ');
 }
 
-export function langOf(resume, fallback = 'es') {
+function langOf(resume, fallback = 'es') {
   const l = (resume?.language || fallback || 'es').slice(0, 2).toLowerCase();
   return LABELS[l] ? l : 'en';
 }
 
-export function renderResume(r, template = 'classic') {
+function renderResume(r, template = 'classic') {
   if (!r) return '<div class="empty">Sin datos</div>';
   const L = LABELS[langOf(r)];
   const c = r.contact || {};
@@ -109,7 +109,7 @@ export function renderResume(r, template = 'classic') {
   return `<div class="cv tpl-${esc(template)}">${out.join('')}</div>`;
 }
 
-export function resumeToText(r) {
+function resumeToText(r) {
   if (!r) return '';
   const L = LABELS[langOf(r)];
   const c = r.contact || {};
@@ -161,7 +161,7 @@ ${extraCss}
 }
 
 // Abre una ventana con el documento y lanza el diálogo de impresión (Guardar como PDF).
-export function printHtml(title, bodyHtml, extraCss = '') {
+function printHtml(title, bodyHtml, extraCss = '') {
   const w = window.open('', '_blank');
   if (!w) throw new Error('El navegador bloqueó la ventana emergente. Permite pop-ups para este sitio.');
   w.document.open();
@@ -171,7 +171,7 @@ export function printHtml(title, bodyHtml, extraCss = '') {
   setTimeout(() => w.print(), 350);
 }
 
-export function download(filename, content, mime = 'text/plain;charset=utf-8') {
+function download(filename, content, mime = 'text/plain;charset=utf-8') {
   const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -183,15 +183,15 @@ export function download(filename, content, mime = 'text/plain;charset=utf-8') {
 }
 
 // Word abre sin problema un HTML con extensión .doc.
-export function downloadWord(filename, title, bodyHtml) {
+function downloadWord(filename, title, bodyHtml) {
   const html = docShell(title, bodyHtml).replace('<html>', '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">');
   download(filename, '﻿' + html, 'application/msword');
 }
 
-export function letterHtml(text) {
+function letterHtml(text) {
   return `<div class="cv letter">${String(text || '').split(/\n{2,}/).map(p => `<p style="margin:0 0 10px">${esc(p).replace(/\n/g, '<br>')}</p>`).join('')}</div>`;
 }
 
-export function safeFile(s) {
+function safeFile(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_').slice(0, 60) || 'documento';
 }
