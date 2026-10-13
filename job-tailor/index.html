@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Tailor</title>
+  <meta name="description" content="Adapta tu hoja de vida a cada oferta de empleo con IA. Gratis, sin backend, tus datos se quedan en tu navegador.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">JT</span>
+      <div>
+        <strong>Job Tailor</strong>
+        <small>CVs adaptados a cada oferta · 100% gratis · local</small>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button data-view="profile" class="active">1. Mi CV</button>
+      <button data-view="jobs">2. Ofertas</button>
+      <button data-view="tracker">3. Seguimiento</button>
+      <button data-view="settings">Ajustes</button>
+    </nav>
+  </header>
+
+  <div id="banner" class="banner hidden"></div>
+
+  <main>
+    <!-- ================= PERFIL / CV MAESTRO ================= -->
+    <section id="view-profile" class="view active">
+      <div class="grid-2">
+        <div class="card">
+          <h2>Tu CV maestro</h2>
+          <p class="muted">Pega aquí tu hoja de vida completa (todo lo que has hecho, aunque sea largo). Es la única fuente de verdad: la IA <b>nunca inventa</b> experiencia, solo reordena, reescribe y destaca lo que ya tienes.</p>
+          <div class="row">
+            <label class="btn secondary file-btn">
+              Subir PDF / DOCX / TXT
+              <input type="file" id="cv-file" accept=".pdf,.docx,.txt,.md" hidden>
+            </label>
+            <span id="cv-file-status" class="muted small"></span>
+          </div>
+          <textarea id="cv-raw" rows="18" placeholder="Pega tu CV aquí o arrastra el archivo (PDF, DOCX, TXT)&#10;&#10;Nombre Apellido&#10;Correo · Teléfono · Ciudad · LinkedIn&#10;&#10;EXPERIENCIA&#10;Cargo — Empresa (2021 – Actual)&#10;- Logro 1&#10;- Logro 2&#10;..."></textarea>
+          <label>Notas adicionales para la IA <span class="muted small">(logros extra, roles objetivo, habilidades que no están en el CV, salario, disponibilidad…)</span></label>
+          <textarea id="cv-notes" rows="4" placeholder="Ej: Busco roles de Frontend / Full-stack. Tengo inglés B2. Disponible para remoto. También manejo Figma a nivel básico."></textarea>
+          <div class="row">
+            <button class="btn" id="btn-parse-cv">Estructurar con IA</button>
+            <button class="btn secondary" id="btn-save-cv">Guardar</button>
+            <span id="cv-status" class="muted small"></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="row space">
+            <h2>Vista estructurada</h2>
+            <div class="row">
+              <select id="profile-template" title="Plantilla"></select>
+              <button class="btn secondary small" id="btn-toggle-json">Editar JSON</button>
+            </div>
+          </div>
+          <p class="muted small">Después de "Estructurar con IA" revisa que todo esté bien. Puedes corregir el JSON directamente.</p>
+          <div id="profile-json-wrap" class="hidden">
+            <textarea id="profile-json" rows="20" class="mono"></textarea>
+            <div class="row"><button class="btn small" id="btn-save-json">Aplicar JSON</button></div>
+          </div>
+          <div id="profile-preview" class="paper-wrap"><div class="empty">Aún no has estructurado tu CV.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= OFERTAS ================= -->
+    <section id="view-jobs" class="view">
+      <div id="jobs-list-pane">
+        <div class="grid-2">
+          <div class="card">
+            <h2>Agregar oferta</h2>
+            <div class="grid-2 tight">
+              <div><label>Cargo</label><input id="job-title" placeholder="(opcional, la IA lo detecta)"></div>
+              <div><label>Empresa</label><input id="job-company" placeholder="(opcional)"></div>
+            </div>
+            <label>URL de la oferta</label>
+            <div class="row">
+              <input id="job-url" placeholder="https://..." style="flex:1">
+              <button class="btn secondary small" id="btn-fetch-url" title="Intenta leer el texto de la oferta usando r.jina.ai (servicio gratuito)">Leer URL</button>
+            </div>
+            <label>Descripción de la oferta</label>
+            <textarea id="job-desc" rows="10" placeholder="Pega aquí la descripción completa del puesto (requisitos, responsabilidades, etc.)"></textarea>
+            <div class="row">
+              <button class="btn" id="btn-add-job">Agregar</button>
+              <button class="btn secondary" id="btn-add-gen">Agregar y adaptar CV</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>Carga masiva</h2>
+            <p class="muted small">Pega varias ofertas separadas por una línea con <code>---</code>. O pega solo URLs (una por línea) y se intentará leer cada una.</p>
+            <textarea id="bulk-text" rows="10" placeholder="Oferta 1 (texto completo)...&#10;---&#10;Oferta 2 (texto completo)...&#10;---&#10;https://empresa.com/empleo/123"></textarea>
+            <div class="row">
+              <button class="btn secondary" id="btn-bulk-add">Importar ofertas</button>
+              <span id="bulk-status" class="muted small"></span>
+            </div>
+            <hr>
+            <h3>Generación en lote</h3>
+            <div class="row wrap">
+              <label class="check"><input type="checkbox" id="batch-cover" checked> Carta de presentación</label>
+              <label class="check"><input type="checkbox" id="batch-interview"> Preparación de entrevista</label>
+            </div>
+            <div class="row">
+              <button class="btn" id="btn-batch">Adaptar CV a todas las pendientes</button>
+              <button class="btn danger hidden" id="btn-batch-stop">Detener</button>
+            </div>
+            <div id="batch-progress" class="progress hidden"><div class="bar"></div><span></span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="row space wrap">
+            <h2>Tus ofertas <span id="jobs-count" class="pill"></span></h2>
+            <div class="row wrap">
+              <input id="jobs-search" placeholder="Buscar..." style="max-width:220px">
+              <select id="jobs-filter"></select>
+            </div>
+          </div>
+          <div id="jobs-list"></div>
+        </div>
+      </div>
+
+      <!-- Detalle de una oferta -->
+      <div id="job-detail-pane" class="hidden"></div>
+    </section>
+
+    <!-- ================= SEGUIMIENTO ================= -->
+    <section id="view-tracker" class="view">
+      <div class="card">
+        <h2>Seguimiento de postulaciones</h2>
+        <div id="tracker-stats" class="stats"></div>
+      </div>
+      <div id="kanban" class="kanban"></div>
+    </section>
+
+    <!-- ================= AJUSTES ================= -->
+    <section id="view-settings" class="view">
+      <div class="grid-2">
+        <div class="card">
+          <h2>Motor de IA</h2>
+          <p class="muted small">Elige un proveedor. Hay opciones <b>gratuitas</b>: Google Gemini (clave gratis en aistudio.google.com), Groq (console.groq.com), OpenRouter (modelos <code>:free</code>) u Ollama en tu computador. Tu clave se guarda solo en este navegador y se envía directamente al proveedor.</p>
+          <label>Proveedor</label>
+          <select id="set-provider"></select>
+          <div id="provider-help" class="help"></div>
+          <div id="set-key-wrap">
+            <label>API key</label>
+            <input id="set-key" type="password" autocomplete="off" placeholder="Pega tu clave">
+          </div>
+          <div id="set-baseurl-wrap" class="hidden">
+            <label>URL base</label>
+            <input id="set-baseurl" placeholder="http://localhost:11434">
+          </div>
+          <label>Modelo</label>
+          <div class="row" style="margin-top:0">
+            <input id="set-model" list="model-suggestions" style="flex:1">
+            <button class="btn secondary small" id="btn-list-models" title="Consulta al proveedor qué modelos puedes usar con tu clave">Cargar modelos</button>
+          </div>
+          <datalist id="model-suggestions"></datalist>
+          <div class="row">
+            <button class="btn" id="btn-save-settings">Guardar</button>
+            <button class="btn secondary" id="btn-test-ai">Probar conexión</button>
+            <span id="settings-status" class="muted small"></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Preferencias de adaptación</h2>
+          <label>Idioma de los documentos</label>
+          <select id="set-lang">
+            <option value="auto">Igual que la oferta (recomendado)</option>
+            <option value="es">Español</option>
+            <option value="en">Inglés</option>
+            <option value="pt">Portugués</option>
+            <option value="fr">Francés</option>
+            <option value="de">Alemán</option>
+          </select>
+          <label>Nivel de adaptación</label>
+          <select id="set-level">
+            <option value="conservative">Conservador — cambios mínimos, mismo texto reordenado</option>
+            <option value="balanced">Equilibrado — reescritura con la terminología de la oferta</option>
+            <option value="aggressive">Agresivo — máxima optimización ATS (sin inventar)</option>
+          </select>
+          <label>Largo máximo</label>
+          <select id="set-length">
+            <option value="1">1 página</option>
+            <option value="2">2 páginas</option>
+          </select>
+          <label>Tono de la carta</label>
+          <select id="set-tone">
+            <option value="professional">Profesional</option>
+            <option value="warm">Cercano y entusiasta</option>
+            <option value="concise">Breve y directo</option>
+          </select>
+          <label>Plantilla de CV por defecto</label>
+          <select id="set-template"></select>
+          <label>Instrucciones extra para la IA</label>
+          <textarea id="set-extra" rows="3" placeholder="Ej: No incluir foto ni fecha de nacimiento. Usar formato de fecha MM/AAAA."></textarea>
+          <label>Pausa entre ofertas en lote (segundos, útil para límites de planes gratis)</label>
+          <input id="set-delay" type="number" min="0" max="120" value="4">
+          <div class="row"><button class="btn" id="btn-save-prefs">Guardar preferencias</button></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Tus datos</h2>
+        <p class="muted small">Todo se guarda en este navegador (IndexedDB). Haz copias de seguridad para no perder nada o para pasarlas a otro equipo.</p>
+        <div class="row wrap">
+          <button class="btn secondary" id="btn-export">Exportar copia (JSON)</button>
+          <label class="btn secondary file-btn">Importar copia<input type="file" id="import-file" accept=".json" hidden></label>
+          <button class="btn danger" id="btn-reset">Borrar todo</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Scripts clásicos (no "module") para que la app funcione también abriendo el archivo con doble clic (file://). -->
+  <script src="store.js"></script>
+  <script src="ats.js"></script>
+  <script src="resume.js"></script>
+  <script src="ai.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
